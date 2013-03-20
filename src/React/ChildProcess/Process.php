@@ -5,6 +5,7 @@ namespace React\ChildProcess;
 use React\Stream\WritableStreamInterface;
 use React\Stream\ReadableStreamInterface;
 use Evenement\EventEmitter;
+use React\EventLoop\LoopInterface;
 
 class Process extends EventEmitter
 {
@@ -29,7 +30,13 @@ class Process extends EventEmitter
     
     private $stopped = false;
 
-    public function __construct($process, WritableStreamInterface $stdin, ReadableStreamInterface $stdout, ReadableStreamInterface $stderr)
+    private $loop = null;
+
+    private $interrupted = false;
+
+    private $timer = null;
+
+    public function __construct($process, WritableStreamInterface $stdin, ReadableStreamInterface $stdout, ReadableStreamInterface $stderr, LoopInterface $loop)
     {
         $this->process = $process;
         $this->stdin   = $stdin;
@@ -47,25 +54,38 @@ class Process extends EventEmitter
             $self->updateStatus();
             $self->observeStatus();
         });
+	$this->loop = $loop;
     }
 
     public function updateStatus()
     {
-        if ($this->process && is_null($this->signalCode)) {
+      if ($this->process && $this->signalCode == null) {
             $this->status = proc_get_status($this->process);
             if (!$this->status['running'] && !$this->stopped) {
                 $this->exitCode = $this->status['exitcode'];
                 $this->stopped = true;
             }
             if ($this->status['signaled']) {
-                $this->signalCode = $this->status['termsig'];
+	      $this->signalCode = $this->status['termsig'];
+	      if ($this->timer) {
+		$this->loop->cancelTimer($this->timer);
+	      }
+	      $this->stdin->close();
+	      $this->stdout->close();
+	      $this->stderr->close();
+	      $this->exits();
             }
+	    else if ($this->interrupted) {
+	      $this->loop->tick();
+	    }
         }
     }
 
     public function observeStatus()
     {
-        if (!$this->stdout->isReadable() && !$this->stderr->isReadable()) {
+      if ($this->interrupted === false
+	  && !$this->stdout->isReadable()
+	  && !$this->stderr->isReadable()) {
             $this->stdin->close();
             $this->stdout->close();
             $this->stderr->close();
@@ -95,7 +115,6 @@ class Process extends EventEmitter
 
         $this->exitCode = $exitCode;
         $this->signalCode = $signalCode;
-
         $this->emit('exit', array($exitCode, $signalCode));
         $this->emit('close', array($exitCode, $signalCode));
     }
@@ -141,7 +160,13 @@ class Process extends EventEmitter
 
     public function terminate($signalCode = self::SIGNAL_CODE_SIGTERM)
     {
-        proc_terminate($this->process, $signalCode);
+      $this->interrupted = true;
+      proc_terminate($this->process, $signalCode);
+      $self = $this;
+      $this->timer = $this->loop->addPeriodicTimer(0.001, function () use ($self) {
+	  $self->updateStatus();
+	});
+	
     }
 
     public function getExitCode()

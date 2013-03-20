@@ -6,6 +6,7 @@ use React\ChildProcess\Process;
 use React\ChildProcess\Factory;
 use React\EventLoop\LoopInterface;
 use React\EventLoop\StreamSelectLoop;
+use React\EventLoop\LibEvLoop;
 
 class ProcessTest extends \PHPUnit_Framework_TestCase
 {
@@ -221,11 +222,13 @@ class ProcessTest extends \PHPUnit_Framework_TestCase
 
     private function createProcess($command)
     {
+      $loop = new LibEvLoop();
         return new Process(
             $this->createProcessStream($command),
             $this->getMock('React\Stream\WritableStreamInterface'),
             $this->getMock('React\Stream\ReadableStreamInterface'),
-            $this->getMock('React\Stream\ReadableStreamInterface')
+            $this->getMock('React\Stream\ReadableStreamInterface'),
+	    $loop
         );
     }
 
@@ -241,7 +244,7 @@ class ProcessTest extends \PHPUnit_Framework_TestCase
 
     private function createProcessWithFactory(LoopInterface $loop, $command, $args)
     {
-        $factory = new Factory($loop);
-        return $factory->spawn($command, $args);
+      $factory = new Factory($loop);
+      return $factory->spawn($command, $args);
     }
 }

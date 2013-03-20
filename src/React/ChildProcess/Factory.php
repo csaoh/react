@@ -10,9 +10,9 @@ class Factory
 {
     private $loop;
 
-    public function __construct(LoopInterface $loop)
+    public function __construct(LoopInterface $streamLoop)
     {
-        $this->loop = $loop;
+        $this->loop = $streamLoop;
     }
 
     public function spawn($file, array $args = array(), $cwd = null, $env = null)
@@ -37,7 +37,7 @@ class Factory
         stream_set_blocking($pipes[1], 0);
         stream_set_blocking($pipes[2], 0);
 
-        return new Process($process, $stdin, $stdout, $stderr);
+        return new Process($process, $stdin, $stdout, $stderr, $this->loop);
     }
 
     private function formatCommandWithArguments($file, $args)
