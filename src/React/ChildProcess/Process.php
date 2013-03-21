@@ -25,7 +25,6 @@ class Process extends EventEmitter
     private $loop = null;
     private $interrupted = false;
     private $timer = null;
-    private $flag = false;
 
     public function __construct($process, WritableStreamInterface $stdin, ReadableStreamInterface $stdout, ReadableStreamInterface $stderr, LoopInterface $loop)
     {
@@ -60,7 +59,7 @@ class Process extends EventEmitter
                 $this->signalCode = $this->status['termsig'];
                 $this->loop->cancelTimer($this->timer);
                 $this->interrupted = false;
-            } else if ($this->interrupted) {
+            } elseif ($this->interrupted) {
                 $this->loop->tick();
             }
         }
@@ -80,13 +79,15 @@ class Process extends EventEmitter
 
     public function exits()
     {
-        proc_close($this->process);
-        $this->process = null;
+        if ($this->process) {
+            proc_close($this->process);
+            $this->process = null;
 
-        if ($this->signalCode) {
-            $this->handleExit(null, $this->signalCode);
-        } else {
-            $this->handleExit($this->exitCode, null);
+            if ($this->signalCode) {
+                $this->handleExit(null, $this->signalCode);
+            } else {
+                $this->handleExit($this->exitCode, null);
+            }
         }
     }
 
@@ -150,6 +151,7 @@ class Process extends EventEmitter
         $self = $this;
         $this->timer = $this->loop->addPeriodicTimer(0.001, function () use ($self) {
                 $self->updateStatus();
+                $self->observeStatus();
             });
     }
 
