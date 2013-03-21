@@ -59,8 +59,6 @@ class Process extends EventEmitter
                 $this->signalCode = $this->status['termsig'];
                 $this->loop->cancelTimer($this->timer);
                 $this->interrupted = false;
-            } elseif ($this->interrupted) {
-                $this->loop->tick();
             }
         }
     }
@@ -144,12 +142,17 @@ class Process extends EventEmitter
         return $status['stopped'];
     }
 
-    public function terminate($signalCode = self::SIGNAL_CODE_SIGTERM)
+    public function terminate($signalCode = self::SIGNAL_CODE_SIGTERM, $timeout = 2)
     {
         $this->interrupted = true;
         proc_terminate($this->process, $signalCode);
         $self = $this;
-        $this->timer = $this->loop->addPeriodicTimer(0.001, function () use ($self) {
+        $time = 0;
+        $this->timer = $this->loop->addPeriodicTimer(0.001, function () use (&$time, $timeout, $self) {
+                $time += 0.001;
+                if ($time >= $timeout) {
+                    throw new \Exception("Could not terminate child process: operation timed out.");
+                }
                 $self->updateStatus();
                 $self->observeStatus();
             });

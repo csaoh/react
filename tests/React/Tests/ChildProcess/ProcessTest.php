@@ -230,6 +230,7 @@ class ProcessTest extends \PHPUnit_Framework_TestCase
             $this->getMock('React\Stream\ReadableStreamInterface'),
         $loop
         );
+        $loop->run();
     }
 
     private function createProcessStream($command)
