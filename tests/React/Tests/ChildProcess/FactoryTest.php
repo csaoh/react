@@ -4,7 +4,6 @@ namespace React\Tests\ChildProcess;
 
 use React\ChildProcess\Factory;
 use React\EventLoop\StreamSelectLoop;
-use React\EventLoop\LibEvLoop;
 
 class FactoryTest extends \PHPUnit_Framework_TestCase
 {

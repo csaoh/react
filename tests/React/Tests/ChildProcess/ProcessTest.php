@@ -58,7 +58,6 @@ class ProcessTest extends \PHPUnit_Framework_TestCase
             $closeIsCalled = true;
         });
 
-
         $process->handleExit(0, null);
 
         $this->assertTrue($exitIsCalled);
@@ -223,12 +222,13 @@ class ProcessTest extends \PHPUnit_Framework_TestCase
     private function createProcess($command)
     {
       $loop = new LibEvLoop();
+
         return new Process(
             $this->createProcessStream($command),
             $this->getMock('React\Stream\WritableStreamInterface'),
             $this->getMock('React\Stream\ReadableStreamInterface'),
             $this->getMock('React\Stream\ReadableStreamInterface'),
-	    $loop
+        $loop
         );
     }
 
@@ -239,12 +239,14 @@ class ProcessTest extends \PHPUnit_Framework_TestCase
             array('pipe', 'w'),
             array('pipe', 'w'),
         );
+
         return proc_open($command, $fdSpecs, $pipes);
     }
 
     private function createProcessWithFactory(LoopInterface $loop, $command, $args)
     {
       $factory = new Factory($loop);
+
       return $factory->spawn($command, $args);
     }
 }
