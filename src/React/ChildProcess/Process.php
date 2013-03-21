@@ -9,83 +9,68 @@ use React\EventLoop\LoopInterface;
 
 class Process extends EventEmitter
 {
+
     const SIGNAL_CODE_SIGKILL = 9;
     const SIGNAL_CODE_SIGTERM = 15;
 
     public $stdin;
-
     public $stdout;
-
     public $stderr;
-
     private $process;
-
     private $status = null;
-
     private $exitCode = null;
-
     private $signalCode = null;
-
     private $exited = false;
-    
     private $stopped = false;
-
     private $loop = null;
-
     private $interrupted = false;
-
     private $timer = null;
+    private $flag = false;
 
     public function __construct($process, WritableStreamInterface $stdin, ReadableStreamInterface $stdout, ReadableStreamInterface $stderr, LoopInterface $loop)
     {
         $this->process = $process;
-        $this->stdin   = $stdin;
-        $this->stdout  = $stdout;
-        $this->stderr  = $stderr;
+        $this->stdin = $stdin;
+        $this->stdout = $stdout;
+        $this->stderr = $stderr;
 
         $self = $this;
 
         $this->stdout->on('end', function () use ($self) {
-            $self->updateStatus();
-            $self->observeStatus();
-        });
+                $self->updateStatus();
+                $self->observeStatus();
+            });
 
         $this->stderr->on('end', function () use ($self) {
-            $self->updateStatus();
-            $self->observeStatus();
-        });
-	$this->loop = $loop;
+                $self->updateStatus();
+                $self->observeStatus();
+            });
+        $this->loop = $loop;
     }
 
     public function updateStatus()
     {
-      if ($this->process && $this->signalCode == null) {
+        if ($this->process && $this->signalCode == null) {
             $this->status = proc_get_status($this->process);
             if (!$this->status['running'] && !$this->stopped) {
                 $this->exitCode = $this->status['exitcode'];
                 $this->stopped = true;
             }
             if ($this->status['signaled']) {
-	      $this->signalCode = $this->status['termsig'];
-	      if ($this->timer) {
-		$this->loop->cancelTimer($this->timer);
-	      }
-	      $this->stdin->close();
-	      $this->stdout->close();
-	      $this->stderr->close();
-	      $this->exits();
+                $this->signalCode = $this->status['termsig'];
+                $this->loop->cancelTimer($this->timer);
+                $this->interrupted = false;
+            } else if ($this->interrupted) {
+                $this->loop->tick();
             }
-	    else if ($this->interrupted) {
-	      $this->loop->tick();
-	    }
         }
     }
 
     public function observeStatus()
     {
-      if ($this->interrupted === false
-	  && !$this->stdout->isReadable()
-	  && !$this->stderr->isReadable()) {
+        if ($this->interrupted == false
+            && !$this->stdout->isReadable()
+            && !$this->stderr->isReadable()) {
             $this->stdin->close();
             $this->stdout->close();
             $this->stderr->close();
@@ -160,13 +145,12 @@ class Process extends EventEmitter
 
     public function terminate($signalCode = self::SIGNAL_CODE_SIGTERM)
     {
-      $this->interrupted = true;
-      proc_terminate($this->process, $signalCode);
-      $self = $this;
-      $this->timer = $this->loop->addPeriodicTimer(0.001, function () use ($self) {
-	  $self->updateStatus();
-	});
-	
+        $this->interrupted = true;
+        proc_terminate($this->process, $signalCode);
+        $self = $this;
+        $this->timer = $this->loop->addPeriodicTimer(0.001, function () use ($self) {
+                $self->updateStatus();
+            });
     }
 
     public function getExitCode()
@@ -194,4 +178,5 @@ class Process extends EventEmitter
 
         return $this->status;
     }
+
 }
