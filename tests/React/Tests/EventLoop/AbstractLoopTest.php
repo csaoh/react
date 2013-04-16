@@ -19,6 +19,8 @@ abstract class AbstractLoopTest extends TestCase
     {
         $input = fopen('php://temp', 'r+');
 
+        
+        var_dump($input);
         $this->loop->addReadStream($input, $this->expectCallableExactly(2));
 
         fwrite($input, "foo\n");
